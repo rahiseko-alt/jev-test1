@@ -12,28 +12,49 @@
 | 開発状況 | 機能追加は完了済み。残るのは不具合修正とセキュリティ監査 |
 | ライセンス | MIT |
 | 開始コマンド | `npx remix@next new my-remix-app` |
-| UIの実装 | React ではなく、Remix 独自のビューレイヤ（reconciler と独自のコンポーネントモデル） |
+| UIの実装 | React ではない。Preact をフォークした独自のビューレイヤ |
+| 必要なNode | **24.3.0 以上** |
+| ビルド段階 | 無い。TypeScript・JSX・CSSは要求時にその場で変換される |
+| ドキュメント | 全15章のうち**7章が未公開（404）**。DB・フォーム・認証・ファイル・エラー処理・CLI・本番運用 |
+| SemVer | RC時点では**まだ適用していない**と公式が明言 |
+| 週間ダウンロード数 | 約16,000（React Router は約4,790万） |
 
-出典: npmレジストリ（`https://registry.npmjs.org/remix` の dist-tags）、
+出典: npmレジストリ（`https://registry.npmjs.org/remix` の dist-tags と `engines`）、
 <https://remix.run/blog/remix-3-release-candidate>、
-<https://github.com/remix-run/remix>、
-<https://guides.remix.run/start-here/>
+<https://remix.run/blog/wake-up-remix>、
+<https://github.com/remix-run/remix/releases>、
+<https://guides.remix.run/start-here/>、
+<https://api.remix.run/>
 
-公式ガイドには「Data and Validation（データベース接続とSQL移行）」「Production（本番運用）」
-「Auth, Sessions, and Security」の章があり、本アプリに必要な機能は一通り揃っている
-<https://guides.remix.run/>。
+データベースは公式の `remix/data-table` があり、PostgreSQL・MySQL・SQLite に対応し、
+移行（マイグレーション）のCLIも同梱されている <https://api.remix.run/api/remix/data-table/overview/>。
+Drizzle など他のものに差し替えることも公式に想定されている。
+
+ただし**ガイドの「Data and Validation」「Auth, Sessions, and Security」「Errors and Cancellation」
+「Production」の各章は現時点で404で、公開されていない**。手順書はAPIリファレンスしか無く、
+データベース・認証・本番運用は自力で組み立てることになる。
 
 ### 判定
 
 **条件付きで可能**。次の2点を守れば採用してよい。
 
-1. **10月2日の安定版を待ってから本実装に入る**。今はリリース候補が2〜3週間ごとに更新されており
-   （rc.1: 8/31、rc.2: 9/8、rc.3: 9/18）、この上に積むと壊れる可能性がある
+1. **10月2日の安定版を待ってから本実装に入る**。リリース候補は2〜3週間ごとに更新されており
+   （rc.1: 8/31、rc.2: 9/8、rc.3: 9/18）、9/18の更新だけでも複数の破壊的変更が入っている。
+   また `remix` が 3.0.0 になっても、内部の40以上のパッケージは 0.x のままである
 2. **判定の中身をRemixに依存させない**（下記の層分け）
+3. **Node 24.3 以上を自前で用意できるサーバーに置く**。ビルド段階が無い設計のため、
+   ビルドを前提とする配置先（Vercel など）との相性は公式に検証も文書化もされていない
+
+10月2日を待てない、あるいは上の3点を飲めない場合は、実績のある React Router 7 を使う。
+Remix 2 の後継は Remix 3 ではなく React Router 7 であることも、公式が明言している
+<https://remix.run/blog/wake-up-remix>。
 
 ### Reactのライブラリが使えない点について
 
-Remix 3 のUIは React ではない。既存のReact向けUIライブラリは使えない。
+Remix 3 のUIは React ではなく、Preact をフォークした独自のものである
+<https://remix.run/blog/wake-up-remix>。既存のReact向けUIライブラリはそのままでは使えない
+（描画部分をReactベースのものに差し替えることは可能、と公式は書いている）。
+
 本アプリの画面は、支持側と反対側の二列、証拠カード、調査ツリーといった独自のものが中心で、
 既製のUIライブラリに頼る部分が少ないため、この制約は受け入れられる。
 
