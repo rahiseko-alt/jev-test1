@@ -142,7 +142,7 @@ describe("loadConfig", () => {
     expect(loadConfig(withRequired()).intake).toEqual({
       provider: "anthropic",
       apiKey: "an-key",
-      model: "claude-sonnet-5",
+      model: "claude-opus-5",
     });
   });
 

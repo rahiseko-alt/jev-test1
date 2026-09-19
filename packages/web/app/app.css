@@ -66,3 +66,115 @@ dt {
 dd {
   margin: 0;
 }
+
+.note {
+  color: var(--muted);
+}
+
+.error {
+  border-left: 3px solid #c0392b;
+  padding: 0.5rem 0 0.5rem 0.75rem;
+  color: #c0392b;
+  background: rgba(192, 57, 43, 0.06);
+}
+
+.claim {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  border-left: 3px solid var(--fg);
+  background: rgba(127, 127, 127, 0.08);
+  font-size: 1.05rem;
+}
+
+ol.turns {
+  list-style: none;
+  margin: 2rem 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+ol.turns li {
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+ol.turns .who {
+  flex: 0 0 4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+form {
+  margin: 1.5rem 0;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+textarea {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  resize: vertical;
+}
+
+button {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid var(--fg);
+  border-radius: 4px;
+  background: var(--fg);
+  color: var(--bg);
+  font: inherit;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--line);
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.actions form {
+  margin: 0;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.columns ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.columns h3,
+.columns h4 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+@media (max-width: 40rem) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}

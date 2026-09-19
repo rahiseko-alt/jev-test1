@@ -13,7 +13,7 @@ export const INTAKE_PROVIDERS = ["anthropic", "openai"] as const;
 export type IntakeProvider = (typeof INTAKE_PROVIDERS)[number];
 
 const INTAKE_PROVIDER_SETTINGS = {
-  anthropic: { apiKeyEnv: "ANTHROPIC_API_KEY", defaultModel: "claude-sonnet-5" },
+  anthropic: { apiKeyEnv: "ANTHROPIC_API_KEY", defaultModel: "claude-opus-5" },
   openai: { apiKeyEnv: "OPENAI_API_KEY", defaultModel: "gpt-5" },
 } as const satisfies Record<
   IntakeProvider,

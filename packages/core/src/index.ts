@@ -19,3 +19,17 @@ export type {
 
 export { DATA_MODEL_TABLES, createDatabase, migrate, readMigrations } from "./db/index.ts";
 export type { Database, SqlParameter } from "./db/index.ts";
+
+export {
+  CLAIM_STATUSES,
+  InvalidClaimError,
+  getClaim,
+  listClaims,
+  saveClaim,
+} from "./claims/index.ts";
+export type {
+  Claim,
+  ClaimStatus,
+  NewClaim,
+  SearchTerms,
+} from "./claims/index.ts";
