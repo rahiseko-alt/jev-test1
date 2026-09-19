@@ -152,6 +152,7 @@ accessible
 official_source
 date_match
 duplicate_of          重複元のevidence_id
+excluded_reason       除外した場合の理由。除外していなければ空
 ```
 
 ### InvestigationBranch（ユーザーの調査分岐）

@@ -150,7 +150,7 @@ const createSqliteDatabase = (path: string): Database => {
 };
 
 /** `?` を PostgreSQL の `$1`, `$2` … に置き換える。 */
-const toPostgresPlaceholders = (sql: string): string => {
+export const toPostgresPlaceholders = (sql: string): string => {
   let index = 0;
   return sql.replace(/\?/g, () => `$${++index}`);
 };

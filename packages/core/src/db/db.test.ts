@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DATA_MODEL_TABLES, createDatabase, migrate } from "./index.ts";
+import {
+  DATA_MODEL_TABLES,
+  createDatabase,
+  migrate,
+  toPostgresPlaceholders,
+} from "./index.ts";
 import type { Database } from "./index.ts";
 
 const migrationsDir = join(import.meta.dirname, "migrations");
@@ -152,5 +157,25 @@ describe("2つのデータベースの定義", () => {
     expect([...readTableShapes("sqlite").keys()].sort()).toEqual(
       [...DATA_MODEL_TABLES].sort(),
     );
+  });
+});
+
+describe("PostgreSQL 向けの差し込み記号", () => {
+  it("? を順番に $1, $2 … へ置き換える", () => {
+    expect(
+      toPostgresPlaceholders("INSERT INTO t (a, b, c) VALUES (?, ?, ?)"),
+    ).toBe("INSERT INTO t (a, b, c) VALUES ($1, $2, $3)");
+  });
+
+  it("差し込みが無いSQLはそのまま", () => {
+    expect(toPostgresPlaceholders("SELECT 1")).toBe("SELECT 1");
+  });
+
+  it("移行の記録に使うSQLも置き換えられる", () => {
+    expect(
+      toPostgresPlaceholders(
+        "INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)",
+      ),
+    ).toBe("INSERT INTO schema_migrations (name, applied_at) VALUES ($1, $2)");
   });
 });
