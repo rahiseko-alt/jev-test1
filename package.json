@@ -1,0 +1,28 @@
+{
+  "name": "jev-factchecker",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "prepare:app": "node --env-file-if-exists=.env scripts/prepare.ts",
+    "predev": "pnpm run prepare:app",
+    "dev": "pnpm --filter @factchecker/web dev",
+    "build": "pnpm -r build",
+    "prestart": "pnpm run prepare:app",
+    "start": "pnpm --filter @factchecker/web start",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
+}

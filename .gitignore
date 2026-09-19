@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.react-router/
+.env
+.env.local
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+coverage/
+*.log

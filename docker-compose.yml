@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # 保存先を、消えない置き場所に向ける。
+      SQLITE_PATH: /app/data/factchecker.db
+    volumes:
+      - factchecker-data:/app/data
+
+volumes:
+  factchecker-data:
