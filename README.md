@@ -1,61 +1,95 @@
-# Matt2
+# ファクトチェッカー
 
-Claude Code で開発を進めるための**テンプレート**です。ここから複製して、新しいプロジェクトを始めます。
-製品のコードは入っていません。入っているのは「進め方の仕組み」だけです。
+**AIに答えを書かせないファクトチェッカー。**
 
-## 複製したら最初にすること
+生成AIは入口の聞き取りだけに使います。証拠を集めたあとの判定は判断特化モデル（Jev）が行い、
+最終的に画面に出る文章は、システムがあらかじめ決めた文面に流し込むだけです。
+生成AIが証拠に無いことを書き足す余地を、構造として作りません。
 
-会話を開いて、そのまま話しかけてください。何も打たなくても、AI が
-「前回の続き・いまの状態・最初の一手」を報告します。
+利用者には結果だけでなく、**どの検索語を使い、どの証拠を採用し、何をなぜ除外したか**を
+すべて見せます。納得できなければ、その場から自分で調査を分岐できます。
 
-そのうえで、次の1つだけ打てば始まります。
+MITライセンスで公開します。
 
-```
-/grill-with-docs
-```
+## いまの状態
 
-AI が質問を重ねて、作りたいものの曖昧な部分を潰します。答えるだけで構いません。
-決まった用語は `CONTEXT.md` に、重要な判断の理由は `docs/adr/` に書き残されるので、
-次の会話にも引き継がれます。
+設計と土台づくりの段階です。検証の画面はまだありません。
+進め方と決まったことは [`docs/design/`](./docs/design/) にあります。
 
-その後、この `README.md` の冒頭をプロジェクトの説明に書き換えてください。
+- [機能分解とMVPの範囲](./docs/design/01-features.md)
+- [外部APIの選定](./docs/design/02-external-apis.md)
+- [Jevの使い方](./docs/design/03-jev-usage.md)
+- [アーキテクチャ](./docs/design/04-architecture.md)
+- [採用する構成](./docs/design/05-stack.md)
 
-## 覚えるのはこの3つだけ
+作業単位は GitHub の Issues にあります。
 
-| 打つもの | 何が起きるか |
-| --- | --- |
-| `s` | 前回の続き・いまの状態・最初の一手を報告します（開始時は自動でも出ます） |
-| `f` | 環境を破棄しても大丈夫な状態まで片づけ、終了して良いかを報告します |
-| `/next-step` | いまどこにいて、次に何を打てばいいかを1つだけ提示します |
+## 動かす
 
-コマンドを覚える必要はありません。「〇〇を作りたい」と伝えるだけでも、実装前に自動で案内が入ります。
+### 必要なもの
 
-## 入っているもの
+- Node.js 22.22 以上
+- pnpm
+- 各サービスの鍵（下記）
 
-- `.claude/skills/` に [mattpocock/skills](https://github.com/mattpocock/skills) を 12 個インストール
-  （`npx skills add mattpocock/skills`、`skills-lock.json` でバージョン固定）
-  - ユーザー起動（このうち案内で使うもの）: `grill-with-docs` / `to-spec` / `to-tickets` / `implement` / `improve-codebase-architecture` / `setup-matt-pocock-skills`
-  - モデル起動: `grilling` / `domain-modeling` / `codebase-design` / `tdd` / `code-review`
-- `.claude/skills/s/`, `.claude/skills/f/`, `.claude/skills/next-step/`: この置き場所独自の案内役と儀式
-- `.claude/settings.json`: 会話開始時に `docs/agents/flow-map.md` を読み込む仕組み
-- `docs/agents/flow-map.md`: 進め方と、説明の書き方のルール
-- `docs/agents/handover.md`: 会話をまたぐ引き継ぎメモ。区切りごとに自動で追記されます
-- `AGENTS.md`: 開発フローの全体像
-- `docs/agents/issue-tracker.md`: 作業指示書の置き場所は GitHub Issues
-- `docs/agents/domain.md`: 用語集は `CONTEXT.md`、判断の記録は `docs/adr/`
-
-## フロー全体
-
-- 新規開発・機能追加: `/grill-with-docs` → 必要に応じて `/to-spec` → `/to-tickets` → `/implement`
-- 設計改善: `/improve-codebase-architecture` → 候補を選択 → `/grill-with-docs` または `/codebase-design` → 以下同じ
-
-`/implement` は `/tdd` で RED → GREEN を繰り返し、最後に `/code-review` を実行します。
-詳細は [AGENTS.md](./AGENTS.md) の「Development flow」を参照してください。
-
-## スキルの更新
+### 鍵を用意する
 
 ```bash
-npx skills update
+cp .env.example .env
 ```
 
-スキル本体は本家のまま使う方針のため、ローカルで書き換えないでください。
+`.env` を開き、少なくとも次の3つを入れてください。入れずに起動すると、
+足りている分だけ動くのではなく、**足りない鍵の名前を挙げて停止します**。
+
+| 環境変数 | 用途 | 取得先 |
+| --- | --- | --- |
+| `TYPESAFE_API_KEY` | 証拠の判定 | <https://console.typesafe.ai/settings/keys> |
+| `TAVILY_API_KEY` | Web検索 | <https://tavily.com>（無料枠あり） |
+| `ANTHROPIC_API_KEY` | 入口の聞き取り | <https://console.anthropic.com> |
+
+鍵はすべて利用者自身のものを使います。このリポジトリに鍵は入っていません。
+
+### 起動する
+
+```bash
+pnpm install
+pnpm dev
+```
+
+または本番向けに組み立てて起動する場合:
+
+```bash
+pnpm install
+pnpm build
+pnpm start
+```
+
+どちらの場合も、起動の前に設定の確認とデータベースの用意が自動で走ります。
+
+## データの置き場所
+
+既定は SQLite です。ファイル1つで動くため、試すまでの手数がかかりません。
+複数人で使う場合は PostgreSQL に切り替えられます。
+
+```bash
+DATABASE_KIND=postgres
+DATABASE_URL=postgres://user:password@localhost:5432/factchecker
+```
+
+## 開発
+
+```bash
+pnpm test        # テスト
+pnpm typecheck   # 型の確認
+```
+
+構成は2つに分かれています。
+
+- `packages/core` — 検索・証拠・判定。特定の画面の仕組みに依存しません。
+  **生成AIのクライアントをここに入れてはいけません**（テストで検査しています）。
+  データベースは素のSQLで扱います（[ADR 0001](./docs/adr/0001-sql-without-orm.md)）
+- `packages/web` — 画面と、入口の聞き取り
+
+## ライセンス
+
+MIT。[LICENSE](./LICENSE) を参照してください。
