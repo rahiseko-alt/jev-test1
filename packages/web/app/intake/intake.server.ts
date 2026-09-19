@@ -10,6 +10,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { Config } from "@factchecker/core/config";
 import { z } from "zod";
 import type { IntakeReply, IntakeTurn } from "./types.ts";
+import { ReadyToConfirmSchema } from "./types.ts";
 
 const SYSTEM_PROMPT = `あなたはファクトチェックの入口で、利用者の漠然とした疑問を「検証できる主張」に変える聞き手です。
 
@@ -39,6 +40,17 @@ const ReplySchema = z.object({
   search_terms_refute: z.array(z.string()).describe("主張に反対する材料を探す検索語。"),
 });
 
+// 生成AIは指示どおりに返すとは限らない。中身は必ずこちらで検査する。
+const asReadyReply = (parsed: z.infer<typeof ReplySchema>) =>
+  ReadyToConfirmSchema.safeParse({
+    status: "ready",
+    claim: parsed.claim,
+    searchTerms: {
+      support: parsed.search_terms_support,
+      refute: parsed.search_terms_refute,
+    },
+  });
+
 /** 生成AIの呼び出しが失敗したときに投げる。画面に出す文言を持つ。 */
 export class IntakeFailedError extends Error {
   constructor(message: string, options?: { cause: unknown }) {
@@ -47,15 +59,25 @@ export class IntakeFailedError extends Error {
   }
 }
 
+/** 接続を使い回すため、鍵ごとに1つだけ作る。 */
+const clients = new Map<string, Anthropic>();
+
+const clientFor = (apiKey: string): Anthropic => {
+  const existing = clients.get(apiKey);
+  if (existing !== undefined) return existing;
+
+  const created = new Anthropic({ apiKey });
+  clients.set(apiKey, created);
+  return created;
+};
+
 export async function askIntake(
   config: Config,
   turns: readonly IntakeTurn[],
 ): Promise<IntakeReply> {
-  const client = new Anthropic({ apiKey: config.intake.apiKey });
-
   let response;
   try {
-    response = await client.messages.parse({
+    response = await clientFor(config.intake.apiKey).messages.parse({
       model: config.intake.model,
       max_tokens: 16000,
       system: SYSTEM_PROMPT,
@@ -77,14 +99,13 @@ export async function askIntake(
     return { status: "needs_more_info", question: parsed.question };
   }
 
-  return {
-    status: "ready",
-    claim: parsed.claim,
-    searchTerms: {
-      support: parsed.search_terms_support,
-      refute: parsed.search_terms_refute,
-    },
-  };
+  const ready = asReadyReply(parsed);
+  if (!ready.success) {
+    throw new IntakeFailedError(
+      "主張か検索語が揃わないまま返ってきました。もう一度お試しください。",
+    );
+  }
+  return ready.data;
 }
 
 const describeFailure = (error: unknown): string => {

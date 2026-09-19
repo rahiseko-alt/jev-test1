@@ -47,9 +47,6 @@ cp .env.example .env
 | `TAVILY_API_KEY` | Web検索 | <https://tavily.com>（無料枠あり） |
 | `ANTHROPIC_API_KEY` | 入口の聞き取り | <https://console.anthropic.com> |
 
-入口の聞き取りは提供元を切り替えられます。`INTAKE_PROVIDER=openai` にすると、
-`ANTHROPIC_API_KEY` の代わりに `OPENAI_API_KEY` が必要になります。
-
 鍵はすべて利用者自身のものを使います。このリポジトリに鍵は入っていません。
 
 ### 起動する

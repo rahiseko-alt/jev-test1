@@ -50,7 +50,7 @@ export class InvalidClaimError extends Error {
   }
 }
 
-const meaningful = (terms: readonly string[]): string[] =>
+const nonBlankTerms = (terms: readonly string[]): string[] =>
   terms.map((term) => term.trim()).filter((term) => term.length > 0);
 
 const validate = (claim: NewClaim): SearchTerms => {
@@ -58,8 +58,8 @@ const validate = (claim: NewClaim): SearchTerms => {
     throw new InvalidClaimError("検証する主張が空です。");
   }
 
-  const support = meaningful(claim.searchTerms.support);
-  const refute = meaningful(claim.searchTerms.refute);
+  const support = nonBlankTerms(claim.searchTerms.support);
+  const refute = nonBlankTerms(claim.searchTerms.refute);
 
   if (support.length === 0) {
     throw new InvalidClaimError("支持する材料を探すための検索語がありません。");
@@ -82,12 +82,45 @@ interface ClaimRow {
   readonly created_at: string;
 }
 
+/** 保存されているとは限らない値を、型どおりだと決めつけずに読む。 */
+export class CorruptClaimError extends Error {
+  constructor(id: string, detail: string) {
+    super(`保存されている主張（${id}）を読み取れません。${detail}`);
+    this.name = "CorruptClaimError";
+  }
+}
+
+const readStatus = (row: ClaimRow): ClaimStatus => {
+  if ((CLAIM_STATUSES as readonly string[]).includes(row.status)) {
+    return row.status as ClaimStatus;
+  }
+  throw new CorruptClaimError(row.id, `知らない状態です: ${row.status}`);
+};
+
+const readSearchTerms = (row: ClaimRow): SearchTerms => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(row.search_terms);
+  } catch {
+    throw new CorruptClaimError(row.id, "検索語が壊れています。");
+  }
+
+  const terms = parsed as Partial<SearchTerms>;
+  if (!Array.isArray(terms?.support) || !Array.isArray(terms?.refute)) {
+    throw new CorruptClaimError(
+      row.id,
+      "検索語に、支持方向と反対方向の両方がありません。",
+    );
+  }
+  return { support: terms.support, refute: terms.refute };
+};
+
 const toClaim = (row: ClaimRow): Claim => ({
   id: row.id,
   originalInput: row.original_input,
   normalizedClaim: row.normalized_claim,
-  searchTerms: JSON.parse(row.search_terms) as SearchTerms,
-  status: row.status as ClaimStatus,
+  searchTerms: readSearchTerms(row),
+  status: readStatus(row),
   createdAt: row.created_at,
 });
 
@@ -127,12 +160,4 @@ export async function getClaim(
     id,
   ]);
   return row === undefined ? undefined : toClaim(row);
-}
-
-/** 新しいものから順に返す。 */
-export async function listClaims(db: Database): Promise<Claim[]> {
-  const rows = await db.query<ClaimRow>(
-    "SELECT * FROM claims ORDER BY created_at DESC, id DESC",
-  );
-  return rows.map(toClaim);
 }

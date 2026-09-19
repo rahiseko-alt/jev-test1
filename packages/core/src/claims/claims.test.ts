@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createDatabase, migrate } from "../db/index.ts";
 import type { Database } from "../db/index.ts";
-import { InvalidClaimError, getClaim, listClaims, saveClaim } from "./index.ts";
+import {
+  CorruptClaimError,
+  InvalidClaimError,
+  getClaim,
+  saveClaim,
+} from "./index.ts";
 
 const opened: Database[] = [];
 
@@ -125,30 +130,42 @@ describe("saveClaim が受け付けないもの", () => {
   });
 });
 
-describe("listClaims", () => {
-  it("新しいものから順に返す", async () => {
-    const db = await openDatabase();
-
-    const first = await saveClaim(db, validInput);
-    await new Promise((resolve) => setTimeout(resolve, 2));
-    const second = await saveClaim(db, {
-      ...validInput,
-      normalizedClaim: "2件目の主張。",
-    });
-
-    expect((await listClaims(db)).map((claim) => claim.id)).toEqual([
-      second.id,
-      first.id,
-    ]);
-  });
-
-  it("1件も無ければ空", async () => {
-    expect(await listClaims(await openDatabase())).toEqual([]);
-  });
-});
-
 describe("getClaim", () => {
   it("知らない識別子なら undefined", async () => {
     expect(await getClaim(await openDatabase(), "missing")).toBeUndefined();
+  });
+});
+
+describe("壊れた保存内容", () => {
+  it("知らない状態なら、読み取り時に気づく", async () => {
+    const db = await openDatabase();
+    const saved = await saveClaim(db, validInput);
+    await db.run("UPDATE claims SET status = ? WHERE id = ?", ["謎", saved.id]);
+
+    await expect(getClaim(db, saved.id)).rejects.toBeInstanceOf(
+      CorruptClaimError,
+    );
+  });
+
+  it("検索語が壊れていれば、読み取り時に気づく", async () => {
+    const db = await openDatabase();
+    const saved = await saveClaim(db, validInput);
+    await db.run("UPDATE claims SET search_terms = ? WHERE id = ?", [
+      "{壊れている",
+      saved.id,
+    ]);
+
+    await expect(getClaim(db, saved.id)).rejects.toThrowError(/検索語/);
+  });
+
+  it("片側の検索語しか無ければ、読み取り時に気づく", async () => {
+    const db = await openDatabase();
+    const saved = await saveClaim(db, validInput);
+    await db.run("UPDATE claims SET search_terms = ? WHERE id = ?", [
+      JSON.stringify({ support: ["a"] }),
+      saved.id,
+    ]);
+
+    await expect(getClaim(db, saved.id)).rejects.toThrowError(/反対方向/);
   });
 });

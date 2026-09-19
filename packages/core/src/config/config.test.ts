@@ -146,39 +146,9 @@ describe("loadConfig", () => {
     });
   });
 
-  it("入口の聞き取りの提供元を切り替えられる", () => {
-    const config = loadConfig({
-      TYPESAFE_API_KEY: "ts-key",
-      TAVILY_API_KEY: "tv-key",
-      INTAKE_PROVIDER: "openai",
-      OPENAI_API_KEY: "oa-key",
-    });
-
-    expect(config.intake.provider).toBe("openai");
-    expect(config.intake.apiKey).toBe("oa-key");
-  });
-
-  it("提供元を切り替えたら、必要な鍵もその提供元のものになる", () => {
-    let thrown: unknown;
-    try {
-      loadConfig({
-        TYPESAFE_API_KEY: "ts-key",
-        TAVILY_API_KEY: "tv-key",
-        INTAKE_PROVIDER: "openai",
-        ANTHROPIC_API_KEY: "an-key",
-      });
-    } catch (error) {
-      thrown = error;
-    }
-
-    expect((thrown as MissingConfigError).missingKeys).toEqual([
-      "OPENAI_API_KEY",
-    ]);
-  });
-
-  it("知らない提供元は、選べる値を挙げて止まる", () => {
+  it("実装の無い提供元は、選べる値を挙げて止まる", () => {
     expect(() =>
-      loadConfig(withRequired({ INTAKE_PROVIDER: "gemini" })),
+      loadConfig(withRequired({ INTAKE_PROVIDER: "openai" })),
     ).toThrowError(/anthropic/);
   });
 

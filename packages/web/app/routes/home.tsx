@@ -1,8 +1,11 @@
-import { saveClaim } from "@factchecker/core";
+import { InvalidClaimError, saveClaim } from "@factchecker/core";
+import { InvalidConfigError, MissingConfigError } from "@factchecker/core/config";
 import { Form, redirect } from "react-router";
+import { SearchTermsColumns } from "../components/search-terms.tsx";
 import { getConfig } from "../config.server.ts";
 import { getDatabase } from "../db.server.ts";
 import { IntakeFailedError, askIntake } from "../intake/intake.server.ts";
+import { parseProposal, parseTurns } from "../intake/parse.ts";
 import type { IntakeTurn, ReadyToConfirm } from "../intake/types.ts";
 import type { Route } from "./+types/home";
 
@@ -10,43 +13,26 @@ export function meta(): Route.MetaDescriptors {
   return [{ title: "ファクトチェッカー" }];
 }
 
-/** やり取りの履歴は、画面の隠し項目に入れて持ち回る。 */
-const readTurns = (raw: FormDataEntryValue | null): IntakeTurn[] => {
-  if (typeof raw !== "string" || raw === "") return [];
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed)) return [];
-  return parsed.filter(
-    (turn): turn is IntakeTurn =>
-      typeof turn === "object" &&
-      turn !== null &&
-      (turn as IntakeTurn).role !== undefined &&
-      typeof (turn as IntakeTurn).text === "string",
-  );
-};
+interface ActionResult {
+  readonly turns: readonly IntakeTurn[];
+  readonly proposal: ReadyToConfirm | null;
+  readonly error: string | null;
+}
 
-export async function action({ request }: Route.ActionArgs) {
+export async function action({ request }: Route.ActionArgs): Promise<
+  ActionResult | Response
+> {
   const form = await request.formData();
-  const turns = readTurns(form.get("turns"));
+  // 隠し項目は利用者の手元を通って戻ってくる。型どおりだと決めつけない。
+  const turns = parseTurns(form.get("turns"));
 
   if (form.get("intent") === "confirm") {
-    const proposal: unknown = JSON.parse(String(form.get("proposal")));
-    const ready = proposal as ReadyToConfirm;
-
-    const claim = await saveClaim(getDatabase(), {
-      originalInput: turns[0]?.text ?? "",
-      normalizedClaim: ready.claim,
-      searchTerms: {
-        support: [...ready.searchTerms.support],
-        refute: [...ready.searchTerms.refute],
-      },
-    });
-
-    return redirect(`/claims/${claim.id}`);
+    return confirmClaim(turns, form.get("proposal"));
   }
 
   const message = String(form.get("message") ?? "").trim();
   if (message === "") {
-    return { turns, error: "確かめたいことを入力してください。" } as const;
+    return { turns, proposal: null, error: "確かめたいことを入力してください。" };
   }
 
   const nextTurns: IntakeTurn[] = [...turns, { role: "user", text: message }];
@@ -56,32 +42,71 @@ export async function action({ request }: Route.ActionArgs) {
 
     if (reply.status === "needs_more_info") {
       return {
-        turns: [
-          ...nextTurns,
-          { role: "assistant", text: reply.question },
-        ] as IntakeTurn[],
+        turns: [...nextTurns, { role: "assistant", text: reply.question }],
         proposal: null,
         error: null,
-      } as const;
+      };
     }
 
-    return { turns: nextTurns, proposal: reply, error: null } as const;
+    return { turns: nextTurns, proposal: reply, error: null };
   } catch (error) {
     return {
       turns: nextTurns,
       proposal: null,
+      // 鍵が足りない・値が不正・呼び出しが失敗した、を区別して見せる。
       error:
+        error instanceof MissingConfigError ||
+        error instanceof InvalidConfigError ||
         error instanceof IntakeFailedError
           ? error.message
           : "聞き取りの途中で問題が起きました。",
-    } as const;
+    };
   }
 }
 
+const confirmClaim = async (
+  turns: readonly IntakeTurn[],
+  raw: FormDataEntryValue | null,
+): Promise<ActionResult | Response> => {
+  const proposal = parseProposal(raw);
+  if (proposal === undefined) {
+    return {
+      turns,
+      proposal: null,
+      error:
+        "確定しようとした内容を読み取れませんでした。お手数ですが、もう一度聞き取りからお願いします。",
+    };
+  }
+
+  const firstUserTurn = turns.find((turn) => turn.role === "user");
+
+  try {
+    const claim = await saveClaim(getDatabase(), {
+      originalInput: firstUserTurn?.text ?? "",
+      normalizedClaim: proposal.claim,
+      searchTerms: {
+        support: [...proposal.searchTerms.support],
+        refute: [...proposal.searchTerms.refute],
+      },
+    });
+    return redirect(`/claims/${claim.id}`);
+  } catch (error) {
+    return {
+      turns,
+      proposal,
+      error:
+        error instanceof InvalidClaimError
+          ? error.message
+          : "確定した内容を保存できませんでした。",
+    };
+  }
+};
+
 export default function Home({ actionData }: Route.ComponentProps) {
   const turns = actionData?.turns ?? [];
-  const proposal = actionData && "proposal" in actionData ? actionData.proposal : null;
+  const proposal = actionData?.proposal ?? null;
   const error = actionData?.error ?? null;
+  const turnsField = JSON.stringify(turns);
 
   return (
     <main>
@@ -108,7 +133,7 @@ export default function Home({ actionData }: Route.ComponentProps) {
 
       {proposal === null ? (
         <Form method="post">
-          <input type="hidden" name="turns" value={JSON.stringify(turns)} />
+          <input type="hidden" name="turns" value={turnsField} />
           <label htmlFor="message">
             {turns.length === 0 ? "確かめたいこと" : "答え"}
           </label>
@@ -127,24 +152,7 @@ export default function Home({ actionData }: Route.ComponentProps) {
           <blockquote className="claim">{proposal.claim}</blockquote>
 
           <h3>使う検索語</h3>
-          <div className="columns">
-            <section>
-              <h4>支持する材料を探す</h4>
-              <ul>
-                {proposal.searchTerms.support.map((term) => (
-                  <li key={term}>{term}</li>
-                ))}
-              </ul>
-            </section>
-            <section>
-              <h4>反対する材料を探す</h4>
-              <ul>
-                {proposal.searchTerms.refute.map((term) => (
-                  <li key={term}>{term}</li>
-                ))}
-              </ul>
-            </section>
-          </div>
+          <SearchTermsColumns terms={proposal.searchTerms} headingLevel="h4" />
 
           <p className="note">
             確定するまで検索は始まりません。確定したあとは、生成AIを呼びません。
@@ -153,7 +161,7 @@ export default function Home({ actionData }: Route.ComponentProps) {
           <div className="actions">
             <Form method="post">
               <input type="hidden" name="intent" value="confirm" />
-              <input type="hidden" name="turns" value={JSON.stringify(turns)} />
+              <input type="hidden" name="turns" value={turnsField} />
               <input
                 type="hidden"
                 name="proposal"
@@ -163,7 +171,15 @@ export default function Home({ actionData }: Route.ComponentProps) {
             </Form>
 
             <Form method="post">
-              <input type="hidden" name="turns" value={JSON.stringify(turns)} />
+              {/* 何を否定されたのか分かるよう、提案そのものも履歴に残す。 */}
+              <input
+                type="hidden"
+                name="turns"
+                value={JSON.stringify([
+                  ...turns,
+                  { role: "assistant", text: proposal.claim },
+                ])}
+              />
               <input
                 type="hidden"
                 name="message"

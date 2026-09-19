@@ -8,13 +8,17 @@
 export const DATABASE_KINDS = ["sqlite", "postgres"] as const;
 export type DatabaseKind = (typeof DATABASE_KINDS)[number];
 
-/** 入口の聞き取りに使う生成AIの提供元。ここだけが生成AIを使う。 */
-export const INTAKE_PROVIDERS = ["anthropic", "openai"] as const;
+/**
+ * 入口の聞き取りに使う生成AIの提供元。ここだけが生成AIを使う。
+ *
+ * 実装があるものだけを並べる。設定で選べるのに動かない、という状態を作らない。
+ * 増やすときは packages/web/app/intake/ に実装を足してから、ここに追加する。
+ */
+export const INTAKE_PROVIDERS = ["anthropic"] as const;
 export type IntakeProvider = (typeof INTAKE_PROVIDERS)[number];
 
 const INTAKE_PROVIDER_SETTINGS = {
   anthropic: { apiKeyEnv: "ANTHROPIC_API_KEY", defaultModel: "claude-opus-5" },
-  openai: { apiKeyEnv: "OPENAI_API_KEY", defaultModel: "gpt-5" },
 } as const satisfies Record<
   IntakeProvider,
   { apiKeyEnv: string; defaultModel: string }

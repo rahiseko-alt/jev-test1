@@ -22,9 +22,9 @@ export type { Database, SqlParameter } from "./db/index.ts";
 
 export {
   CLAIM_STATUSES,
+  CorruptClaimError,
   InvalidClaimError,
   getClaim,
-  listClaims,
   saveClaim,
 } from "./claims/index.ts";
 export type {

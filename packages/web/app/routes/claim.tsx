@@ -1,5 +1,6 @@
 import { getClaim } from "@factchecker/core";
 import { data } from "react-router";
+import { SearchTermsColumns } from "../components/search-terms.tsx";
 import { getDatabase } from "../db.server.ts";
 import type { Route } from "./+types/claim";
 
@@ -32,24 +33,7 @@ export default function ClaimPage({ loaderData }: Route.ComponentProps) {
         支持する材料と、反対する材料の両方を探します。片側だけでは調べません。
       </p>
 
-      <div className="columns">
-        <section>
-          <h3>主張を支持する材料を探す</h3>
-          <ul>
-            {claim.searchTerms.support.map((term) => (
-              <li key={term}>{term}</li>
-            ))}
-          </ul>
-        </section>
-        <section>
-          <h3>反対する材料を探す</h3>
-          <ul>
-            {claim.searchTerms.refute.map((term) => (
-              <li key={term}>{term}</li>
-            ))}
-          </ul>
-        </section>
-      </div>
+      <SearchTermsColumns terms={claim.searchTerms} />
 
       <h2>最初の入力</h2>
       <p className="note">{claim.originalInput}</p>
