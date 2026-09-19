@@ -221,11 +221,14 @@ URL一覧
 必要な鍵（すべて利用者が自分で用意する）:
 
 ```
-TYPESAFE_API_KEY        Jev。必須
-TAVILY_API_KEY          Web検索。必須
-OPENAI_API_KEY 等       入口の聞き取り用。必須（どれを使うかは設定で選ぶ）
-GOOGLE_FACTCHECK_KEY    既存ファクトチェック検索。任意
-CROSSREF_MAILTO         Crossrefの連絡先。任意（入れると上限が緩む）
+TYPESAFE_API_KEY          Jev。必須
+TAVILY_API_KEY            Web検索。必須
+INTAKE_PROVIDER           入口の聞き取りの提供元。anthropic（既定）または openai
+ANTHROPIC_API_KEY         INTAKE_PROVIDER=anthropic のとき必須
+OPENAI_API_KEY            INTAKE_PROVIDER=openai のとき必須
+INTAKE_MODEL              使うモデル。未設定なら提供元ごとの既定値
+GOOGLE_FACTCHECK_API_KEY  既存ファクトチェック検索。任意
+CROSSREF_MAILTO           Crossrefの連絡先。任意（入れると上限が緩む）
 ```
 
 - `.env.example` を用意し、実際の鍵はリポジトリに一切入れない

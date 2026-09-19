@@ -78,6 +78,61 @@ describe("migrate", () => {
   });
 });
 
+describe("値の差し込み", () => {
+  it("値はSQLの文字列に混ぜず、差し込みで渡せる", async () => {
+    const db = openMemoryDatabase();
+    await migrate(db);
+
+    // 引用符を含む値でも壊れないこと。
+    await db.run(
+      `INSERT INTO claims (id, original_input, normalized_claim, search_terms, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      ["c-1", "it's a test", "主張", "{}", "collecting", "2026-09-19T00:00:00.000Z"],
+    );
+
+    const rows = await db.query<{ original_input: string }>(
+      "SELECT original_input FROM claims WHERE id = ?",
+      ["c-1"],
+    );
+    expect(rows[0]?.original_input).toBe("it's a test");
+  });
+});
+
+describe("ひとまとまりの処理", () => {
+  it("途中で失敗したら、その中の変更は全部取り消される", async () => {
+    const db = openMemoryDatabase();
+    await migrate(db);
+
+    await expect(
+      db.transaction(async () => {
+        await db.run(
+          `INSERT INTO claims (id, original_input, normalized_claim, search_terms, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          ["c-2", "入力", "主張", "{}", "collecting", "2026-09-19T00:00:00.000Z"],
+        );
+        throw new Error("途中で失敗");
+      }),
+    ).rejects.toThrow("途中で失敗");
+
+    expect(await db.query("SELECT id FROM claims")).toEqual([]);
+  });
+
+  it("最後まで通れば、その中の変更は残る", async () => {
+    const db = openMemoryDatabase();
+    await migrate(db);
+
+    await db.transaction(async () => {
+      await db.run(
+        `INSERT INTO claims (id, original_input, normalized_claim, search_terms, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        ["c-3", "入力", "主張", "{}", "collecting", "2026-09-19T00:00:00.000Z"],
+      );
+    });
+
+    expect(await db.query("SELECT id FROM claims")).toHaveLength(1);
+  });
+});
+
 describe("2つのデータベースの定義", () => {
   it("同じ表を持つ", () => {
     expect([...readTableShapes("postgres").keys()].sort()).toEqual(

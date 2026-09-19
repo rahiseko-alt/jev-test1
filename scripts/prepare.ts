@@ -6,6 +6,7 @@ import {
   InvalidConfigError,
   MissingConfigError,
   createDatabase,
+  describeDatabase,
   loadConfig,
   migrate,
 } from "../packages/core/src/index.ts";
@@ -28,10 +29,9 @@ const main = async (): Promise<void> => {
   const db = createDatabase(config.database);
   try {
     await migrate(db);
-    const kind = config.database.kind;
-    const where =
-      config.database.kind === "sqlite" ? config.database.path : "PostgreSQL";
-    console.log(`データベースの準備ができました（${kind}: ${where}）。`);
+    console.log(
+      `データベースの準備ができました: ${describeDatabase(config.database)}`,
+    );
   } finally {
     await db.close();
   }

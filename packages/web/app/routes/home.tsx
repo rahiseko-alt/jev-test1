@@ -1,4 +1,4 @@
-import { loadConfig } from "@factchecker/core/config";
+import { describeDatabase, loadConfig } from "@factchecker/core/config";
 import type { Route } from "./+types/home";
 
 export function meta(): Route.MetaDescriptors {
@@ -13,11 +13,8 @@ export function loader() {
   const config = loadConfig(process.env);
 
   return {
-    database:
-      config.database.kind === "sqlite"
-        ? `SQLite（${config.database.path}）`
-        : "PostgreSQL",
-    intakeModel: config.intakeModel,
+    database: describeDatabase(config.database),
+    intakeModel: `${config.intake.model}（${config.intake.provider}）`,
     googleFactCheck: config.googleFactCheckApiKey === undefined ? "未設定" : "設定済み",
     crossrefMailto: config.crossrefMailto ?? "未設定",
   };

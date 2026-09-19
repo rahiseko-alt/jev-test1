@@ -59,8 +59,9 @@ describe("core の境界", () => {
   it("どのソースからも生成AIのクライアントを読み込んでいない", () => {
     const offenders = sourceFiles(join(packageRoot, "src")).filter((file) => {
       const source = readFileSync(file, "utf8");
+      // `from "pkg"` も `from "pkg/sub"` も 動的な `import("pkg")` も捕まえる。
       return GENERATIVE_AI_PACKAGES.some((name) =>
-        new RegExp(`from ["']${name}["']`).test(source),
+        new RegExp(`(?:from|import\\()\\s*["']${name}(?:/|["'])`).test(source),
       );
     });
 

@@ -1,11 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { MissingConfigError, loadConfig } from "./index.ts";
+import { MissingConfigError, describeDatabase, loadConfig } from "./index.ts";
 
 const withRequired = (extra: Record<string, string | undefined> = {}) => ({
   TYPESAFE_API_KEY: "ts-key",
   TAVILY_API_KEY: "tv-key",
   ANTHROPIC_API_KEY: "an-key",
   ...extra,
+});
+
+describe("describeDatabase", () => {
+  it("SQLiteはファイルの場所まで示す", () => {
+    expect(describeDatabase({ kind: "sqlite", path: "./data/x.db" })).toBe(
+      "SQLite（./data/x.db）",
+    );
+  });
+
+  it("PostgreSQLは接続先を出さない", () => {
+    const description = describeDatabase({
+      kind: "postgres",
+      url: "postgres://user:pw@localhost:5432/fc",
+    });
+
+    expect(description).toBe("PostgreSQL");
+    expect(description).not.toContain("pw");
+  });
 });
 
 describe("loadConfig", () => {
@@ -120,7 +138,53 @@ describe("loadConfig", () => {
     expect(config.crossrefMailto).toBe("me@example.com");
   });
 
-  it("入口の聞き取りに使うモデルには既定値がある", () => {
-    expect(loadConfig(withRequired()).intakeModel).toBe("claude-sonnet-5");
+  it("入口の聞き取りは、既定ではClaudeを使う", () => {
+    expect(loadConfig(withRequired()).intake).toEqual({
+      provider: "anthropic",
+      apiKey: "an-key",
+      model: "claude-sonnet-5",
+    });
+  });
+
+  it("入口の聞き取りの提供元を切り替えられる", () => {
+    const config = loadConfig({
+      TYPESAFE_API_KEY: "ts-key",
+      TAVILY_API_KEY: "tv-key",
+      INTAKE_PROVIDER: "openai",
+      OPENAI_API_KEY: "oa-key",
+    });
+
+    expect(config.intake.provider).toBe("openai");
+    expect(config.intake.apiKey).toBe("oa-key");
+  });
+
+  it("提供元を切り替えたら、必要な鍵もその提供元のものになる", () => {
+    let thrown: unknown;
+    try {
+      loadConfig({
+        TYPESAFE_API_KEY: "ts-key",
+        TAVILY_API_KEY: "tv-key",
+        INTAKE_PROVIDER: "openai",
+        ANTHROPIC_API_KEY: "an-key",
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect((thrown as MissingConfigError).missingKeys).toEqual([
+      "OPENAI_API_KEY",
+    ]);
+  });
+
+  it("知らない提供元は、選べる値を挙げて止まる", () => {
+    expect(() =>
+      loadConfig(withRequired({ INTAKE_PROVIDER: "gemini" })),
+    ).toThrowError(/anthropic/);
+  });
+
+  it("使うモデルを指定できる", () => {
+    expect(
+      loadConfig(withRequired({ INTAKE_MODEL: "claude-opus-5" })).intake.model,
+    ).toBe("claude-opus-5");
   });
 });

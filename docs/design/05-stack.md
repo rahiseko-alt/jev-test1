@@ -11,7 +11,7 @@ Remix 3 は不採用。2026-09-19 時点で確認した内容をもとに決め�
 | パッケージ管理 | pnpm workspaces | — | MIT |
 | 画面 | React Router（framework mode） | 8.4.0 | MIT |
 | データベース | SQLite（既定）／PostgreSQL（任意） | better-sqlite3 13 / pg 8 | MIT |
-| DB操作 | Drizzle ORM | 0.45.2 | Apache-2.0 |
+| DB操作 | 素のSQL（値は差し込みで渡す） | — | — |
 | 入力検査 | zod | 4.6.5 | MIT |
 | テスト | Vitest | 5.0.1 | MIT |
 | 本文抽出 | @mozilla/readability | 0.6.0 | Apache-2.0 |
@@ -61,7 +61,8 @@ Next.js も候補だったが、自前運用の手順が増え、特定の事業
 - **SQLite を既定**にする。利用者が自分のパソコンやサーバーに置くとき、
   データベースを別に立てずにファイル1つで動く方が、試すまでの障壁が低い
 - **PostgreSQL を任意**で選べるようにする。複数人で使う場合に必要になる
-- Drizzle ORM は同じ書き方で両方に対応でき、移行（マイグレーション）も扱える
+- 表の定義は方言ごとに移行ファイルを1本ずつ持ち、2つが同じ表と列を持つことを
+  テストで検査する。ORMを使わない理由は [ADR 0001](../adr/0001-sql-without-orm.md) を参照
 
 ## 層の分け方（再掲）
 

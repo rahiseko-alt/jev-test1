@@ -47,6 +47,9 @@ cp .env.example .env
 | `TAVILY_API_KEY` | Web検索 | <https://tavily.com>（無料枠あり） |
 | `ANTHROPIC_API_KEY` | 入口の聞き取り | <https://console.anthropic.com> |
 
+入口の聞き取りは提供元を切り替えられます。`INTAKE_PROVIDER=openai` にすると、
+`ANTHROPIC_API_KEY` の代わりに `OPENAI_API_KEY` が必要になります。
+
 鍵はすべて利用者自身のものを使います。このリポジトリに鍵は入っていません。
 
 ### 起動する
@@ -95,7 +98,8 @@ pnpm typecheck   # 型の確認
 構成は2つに分かれています。
 
 - `packages/core` — 検索・証拠・判定。特定の画面の仕組みに依存しません。
-  **生成AIのクライアントをここに入れてはいけません**（テストで検査しています）
+  **生成AIのクライアントをここに入れてはいけません**（テストで検査しています）。
+  データベースは素のSQLで扱います（[ADR 0001](./docs/adr/0001-sql-without-orm.md)）
 - `packages/web` — 画面と、入口の聞き取り
 
 ## ライセンス

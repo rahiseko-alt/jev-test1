@@ -5,28 +5,38 @@
  * 足りない鍵は1つずつではなく、まとめて挙げる。
  */
 
-export const REQUIRED_KEYS = [
-  "TYPESAFE_API_KEY",
-  "TAVILY_API_KEY",
-  "ANTHROPIC_API_KEY",
-] as const;
-
 export const DATABASE_KINDS = ["sqlite", "postgres"] as const;
-
 export type DatabaseKind = (typeof DATABASE_KINDS)[number];
 
+/** 入口の聞き取りに使う生成AIの提供元。ここだけが生成AIを使う。 */
+export const INTAKE_PROVIDERS = ["anthropic", "openai"] as const;
+export type IntakeProvider = (typeof INTAKE_PROVIDERS)[number];
+
+const INTAKE_PROVIDER_SETTINGS = {
+  anthropic: { apiKeyEnv: "ANTHROPIC_API_KEY", defaultModel: "claude-sonnet-5" },
+  openai: { apiKeyEnv: "OPENAI_API_KEY", defaultModel: "gpt-5" },
+} as const satisfies Record<
+  IntakeProvider,
+  { apiKeyEnv: string; defaultModel: string }
+>;
+
 export const DEFAULT_SQLITE_PATH = "./data/factchecker.db";
-export const DEFAULT_INTAKE_MODEL = "claude-sonnet-5";
+export const DEFAULT_INTAKE_PROVIDER: IntakeProvider = "anthropic";
 
 export type DatabaseConfig =
   | { readonly kind: "sqlite"; readonly path: string }
   | { readonly kind: "postgres"; readonly url: string };
 
+export interface IntakeConfig {
+  readonly provider: IntakeProvider;
+  readonly apiKey: string;
+  readonly model: string;
+}
+
 export interface Config {
   readonly typesafeApiKey: string;
   readonly tavilyApiKey: string;
-  readonly anthropicApiKey: string;
-  readonly intakeModel: string;
+  readonly intake: IntakeConfig;
   readonly database: DatabaseConfig;
   readonly googleFactCheckApiKey?: string;
   readonly crossrefMailto?: string;
@@ -69,60 +79,91 @@ const read = (env: Environment, key: string): string | undefined => {
   return value === undefined || value === "" ? undefined : value;
 };
 
-const readDatabaseKind = (env: Environment): DatabaseKind => {
-  const raw = read(env, "DATABASE_KIND");
-  if (raw === undefined) return "sqlite";
-  if ((DATABASE_KINDS as readonly string[]).includes(raw)) {
-    return raw as DatabaseKind;
-  }
-  throw new InvalidConfigError(
-    "DATABASE_KIND",
-    `選べるのは ${DATABASE_KINDS.join(" か ")} です。`,
-  );
+const readFromChoices = <Choice extends string>(
+  env: Environment,
+  key: string,
+  choices: readonly Choice[],
+  fallback: Choice,
+): Choice => {
+  const raw = read(env, key);
+  if (raw === undefined) return fallback;
+  if ((choices as readonly string[]).includes(raw)) return raw as Choice;
+  throw new InvalidConfigError(key, `選べるのは ${choices.join(" か ")} です。`);
 };
 
-export function loadConfig(env: Environment): Config {
-  const missing: string[] = [];
+/**
+ * 足りない鍵を1つずつ投げずに集める。利用者が .env を何度も往復しないで済むように。
+ */
+class RequiredValues {
+  readonly #env: Environment;
+  readonly missing: string[] = [];
 
-  const values = new Map<string, string>();
-  for (const key of REQUIRED_KEYS) {
-    const value = read(env, key);
+  constructor(env: Environment) {
+    this.#env = env;
+  }
+
+  /** 値があれば返し、無ければ空文字を返して「足りない」側に記録する。 */
+  take(key: string): string {
+    const value = read(this.#env, key);
     if (value === undefined) {
-      missing.push(key);
-    } else {
-      values.set(key, value);
+      this.missing.push(key);
+      return "";
     }
+    return value;
   }
+}
 
-  const kind = readDatabaseKind(env);
+/** 画面やログに出すための、データの置き場所の説明。 */
+export function describeDatabase(database: DatabaseConfig): string {
+  return database.kind === "sqlite"
+    ? `SQLite（${database.path}）`
+    : "PostgreSQL";
+}
 
-  let database: DatabaseConfig | undefined;
-  if (kind === "postgres") {
-    const url = read(env, "DATABASE_URL");
-    if (url === undefined) {
-      missing.push("DATABASE_URL");
-    } else {
-      database = { kind: "postgres", url };
-    }
-  } else {
-    database = {
-      kind: "sqlite",
-      path: read(env, "SQLITE_PATH") ?? DEFAULT_SQLITE_PATH,
-    };
-  }
+export function loadConfig(env: Environment): Config {
+  const required = new RequiredValues(env);
 
-  if (missing.length > 0 || database === undefined) {
-    throw new MissingConfigError(missing);
+  const typesafeApiKey = required.take("TYPESAFE_API_KEY");
+  const tavilyApiKey = required.take("TAVILY_API_KEY");
+
+  const provider = readFromChoices(
+    env,
+    "INTAKE_PROVIDER",
+    INTAKE_PROVIDERS,
+    DEFAULT_INTAKE_PROVIDER,
+  );
+  const providerSettings = INTAKE_PROVIDER_SETTINGS[provider];
+  const intake: IntakeConfig = {
+    provider,
+    apiKey: required.take(providerSettings.apiKeyEnv),
+    model: read(env, "INTAKE_MODEL") ?? providerSettings.defaultModel,
+  };
+
+  const kind = readFromChoices(
+    env,
+    "DATABASE_KIND",
+    DATABASE_KINDS,
+    "sqlite",
+  );
+  const database: DatabaseConfig =
+    kind === "postgres"
+      ? { kind: "postgres", url: required.take("DATABASE_URL") }
+      : {
+          kind: "sqlite",
+          path: read(env, "SQLITE_PATH") ?? DEFAULT_SQLITE_PATH,
+        };
+
+  if (required.missing.length > 0) {
+    throw new MissingConfigError(required.missing);
   }
 
   const googleFactCheckApiKey = read(env, "GOOGLE_FACTCHECK_API_KEY");
   const crossrefMailto = read(env, "CROSSREF_MAILTO");
 
   return {
-    typesafeApiKey: values.get("TYPESAFE_API_KEY") as string,
-    tavilyApiKey: values.get("TAVILY_API_KEY") as string,
-    anthropicApiKey: values.get("ANTHROPIC_API_KEY") as string,
-    intakeModel: read(env, "INTAKE_MODEL") ?? DEFAULT_INTAKE_MODEL,
+    typesafeApiKey,
+    tavilyApiKey,
+    intake,
     database,
     ...(googleFactCheckApiKey === undefined ? {} : { googleFactCheckApiKey }),
     ...(crossrefMailto === undefined ? {} : { crossrefMailto }),
